@@ -392,12 +392,7 @@ desktop-file-validate %buildroot%_datadir/applications/PrusaGcodeviewer.desktop
 # Some tests are Perl but there is a framework for other tests even though
 # currently the only thing that uses them is one of the bundled libraries.
 # There's no reason not to run as much as we can.
-%ifarch s390x
-# Some test tend to segfault on s390x; ignore failure there
-%cmake_build -- test ARGS=-V || :
-%else
 %cmake_build -- test ARGS=-V
-%endif
 
 
 %files -f license-files -f lang-files
