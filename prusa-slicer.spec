@@ -7,8 +7,8 @@
 %endif
 
 Name:           prusa-slicer
-Version:        2.4.2
-Release:        14%{?dist}
+Version:        2.5.0
+Release:        1%{?dist}
 Summary:        3D printing slicer optimized for Prusa printers
 
 # The main PrusaSlicer code and resources are AGPLv3, with small parts as
@@ -53,6 +53,8 @@ Patch392:       prusa-slicer-boost_filesystem_ofstream-deprecation-1_79.patch
 Patch393:       prusa-slicer-boost_filesystem_ofstream-deprecation-1_79-followup.patch
 # https://github.com/prusa3d/PrusaSlicer/pull/11769
 Patch394:       prusa-slicer-pr-11769.patch
+# Work with OpenCASCADE 7.6.3 which is in Fedora 39
+Patch395:       prusa-slicer-opencascade-7.6.3.patch
 
 # Highly-parallel uild can run out of memory on PPC64le
 %ifarch ppc64le
@@ -83,6 +85,7 @@ BuildRequires:  libgudev
 # Upstream miniz is no longer compatible, gotta use the fork.
 # BuildRequires:  miniz-devel
 BuildRequires:  NLopt-devel
+BuildRequires:  opencascade-devel
 BuildRequires:  openvdb
 BuildRequires:  openvdb-devel
 BuildRequires:  systemd-devel
@@ -275,6 +278,7 @@ license avrdude COPYING
 license imgui LICENSE.txt
 license libnest2d LICENSE.txt
 license qhull COPYING.txt
+git add license-files
 commit "Move license files"
 
 # Delete a stray font file
@@ -289,7 +293,6 @@ unbundle () {
 }
 
 unbundle eigen
-unbundle expat
 unbundle glew
 
 # These tests were fixed but the fixes were undone upsteam with commit ac6969c
@@ -412,6 +415,9 @@ desktop-file-validate %buildroot%_datadir/applications/PrusaGcodeviewer.desktop
 %endif
 
 %changelog
+* Sat Jan 27 2024 Jan Pazdziora <adelton@fedoraproject.org> - 2.5.0-1
+- Rebase to 2.5.0.
+
 * Fri Jan 26 2024 Fedora Release Engineering <releng@fedoraproject.org> - 2.4.2-14
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
 

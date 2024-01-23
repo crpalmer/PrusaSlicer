@@ -1,0 +1,11 @@
+--- a/src/occt_wrapper/CMakeLists.txt.orig	2023-12-27 21:08:35.865374600 +0000
++++ b/src/occt_wrapper/CMakeLists.txt	2023-12-27 21:08:43.610496996 +0000
+@@ -19,7 +19,7 @@
+ 
+ generate_export_header(OCCTWrapper)
+ 
+-find_package(OpenCASCADE 7.6.2 REQUIRED)
++find_package(OpenCASCADE 7.6.3 REQUIRED)
+ 
+ set(OCCT_LIBS
+     TKXDESTEP
