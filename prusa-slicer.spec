@@ -8,7 +8,7 @@
 
 Name:           prusa-slicer
 Version:        2.6.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        3D printing slicer optimized for Prusa printers
 
 # The main PrusaSlicer code and resources are AGPLv3, with small parts as
@@ -23,8 +23,6 @@ License:        AGPLv3
 URL:            https://github.com/prusa3d/PrusaSlicer/
 Source0:        https://github.com/prusa3d/PrusaSlicer/archive/version_%version.tar.gz
 Source2:        %name.appdata.xml
-
-Patch1:         prusa-slicer-no-cereal-lib.patch
 
 # Fix compilation errors with -std=gnu++17 (PR#11154)
 Patch3:         prusa-slicer-fix-gcc-17.patch
@@ -392,6 +390,9 @@ desktop-file-validate %buildroot%_datadir/applications/PrusaGcodeviewer.desktop
 %endif
 
 %changelog
+* Sun Jan 28 2024 Jan Pazdziora <adelton@fedoraproject.org> - 2.6.0-2
+- Update how the cereal component is built, patch is no longer needed.
+
 * Sun Jan 28 2024 Jan Pazdziora <adelton@fedoraproject.org> - 2.6.0-1
 - Rebase to 2.6.0.
 
