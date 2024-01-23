@@ -7,8 +7,8 @@
 %endif
 
 Name:           prusa-slicer
-Version:        2.6.0
-Release:        3%{?dist}
+Version:        2.6.1
+Release:        1%{?dist}
 Summary:        3D printing slicer optimized for Prusa printers
 
 # The main PrusaSlicer code and resources are AGPLv3, with small parts as
@@ -23,9 +23,6 @@ License:        AGPLv3
 URL:            https://github.com/prusa3d/PrusaSlicer/
 Source0:        https://github.com/prusa3d/PrusaSlicer/archive/version_%version.tar.gz
 Source2:        %name.appdata.xml
-
-# Fix compilation errors with -std=gnu++17 (PR#11154)
-Patch3:         prusa-slicer-fix-gcc-17.patch
 
 # Fix a couple of segfaults that happen with wxWidgets 3.2 (from Debian)
 Patch5:         prusa-slicer-fix-uninitialized-imgui-segfault.patch
@@ -389,6 +386,9 @@ desktop-file-validate %buildroot%_datadir/applications/PrusaGcodeviewer.desktop
 %endif
 
 %changelog
+* Wed Jan 31 2024 Jan Pazdziora <adelton@fedoraproject.org> - 2.6.1-1
+- Rebase to 2.6.1.
+
 * Sun Jan 28 2024 Jan Pazdziora <adelton@fedoraproject.org> - 2.6.0-3
 - Fix failing tests that need the NotoSans-Regular.ttf file.
 
