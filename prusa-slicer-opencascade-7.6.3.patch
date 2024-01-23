@@ -9,3 +9,10 @@
  
  set(OCCT_LIBS
      TKXDESTEP
+@@ -58,5 +58,5 @@ target_link_libraries(OCCTWrapper ${OCCT
+ 
+ include(GNUInstallDirs)
+ 
+-install(TARGETS OCCTWrapper DESTINATION "${CMAKE_INSTALL_BINDIR}")
++install(TARGETS OCCTWrapper DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+ 
