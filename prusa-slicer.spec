@@ -55,6 +55,8 @@ Patch393:       prusa-slicer-boost_filesystem_ofstream-deprecation-1_79-followup
 Patch394:       prusa-slicer-pr-11769.patch
 # Work with OpenCASCADE 7.6.3 which is in Fedora 39
 Patch395:       prusa-slicer-opencascade-7.6.3.patch
+# https://github.com/prusa3d/PrusaSlicer/issues/9128
+Patch396:       prusa-slicer-issue-9128.patch
 
 # Highly-parallel uild can run out of memory on PPC64le
 %ifarch ppc64le
