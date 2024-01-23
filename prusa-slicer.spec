@@ -7,7 +7,7 @@
 %endif
 
 Name:           prusa-slicer
-Version:        2.5.0
+Version:        2.5.2
 Release:        1%{?dist}
 Summary:        3D printing slicer optimized for Prusa printers
 
@@ -417,6 +417,9 @@ desktop-file-validate %buildroot%_datadir/applications/PrusaGcodeviewer.desktop
 %endif
 
 %changelog
+* Sat Jan 27 2024 Jan Pazdziora <adelton@fedoraproject.org> - 2.5.2-1
+- Rebase to 2.5.2.
+
 * Sat Jan 27 2024 Jan Pazdziora <adelton@fedoraproject.org> - 2.5.0-1
 - Rebase to 2.5.0.
 
