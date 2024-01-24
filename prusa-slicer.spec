@@ -8,7 +8,7 @@
 
 Name:           prusa-slicer
 Version:        2.6.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        3D printing slicer optimized for Prusa printers
 
 # The main PrusaSlicer code and resources are AGPLv3, with small parts as
@@ -261,10 +261,6 @@ license libnest2d LICENSE.txt
 git add license-files
 commit "Move license files"
 
-# Delete a stray font file
-rm -rf resources/fonts
-commit "Remove stray font file"
-
 # Unbundle libraries
 unbundle () {
     rm -rf src/$1
@@ -363,6 +359,9 @@ find %buildroot%_datadir/PrusaSlicer/localization -type d | sed '
 rm -f %buildroot%_prefix/lib/udev/rules.d/90-3dconnexion.rules
 %endif
 
+# Delete font files that are only needed for tests
+rm -rf %buildroot%_datadir/PrusaSlicer/fonts
+
 %check
 desktop-file-validate %buildroot%_datadir/applications/PrusaGcodeviewer.desktop
 
@@ -390,6 +389,9 @@ desktop-file-validate %buildroot%_datadir/applications/PrusaGcodeviewer.desktop
 %endif
 
 %changelog
+* Sun Jan 28 2024 Jan Pazdziora <adelton@fedoraproject.org> - 2.6.0-3
+- Fix failing tests that need the NotoSans-Regular.ttf file.
+
 * Sun Jan 28 2024 Jan Pazdziora <adelton@fedoraproject.org> - 2.6.0-2
 - Update how the cereal component is built, patch is no longer needed.
 
