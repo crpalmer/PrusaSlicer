@@ -1,3 +1,6 @@
+* Thu Mar 07 2024 Jan Pazdziora <adelton@fedoraproject.org> - 2.7.0-1
+- Rebase to 2.7.0.
+
 * Wed Feb 21 2024 Dennis Gilmore <dennis@ausil.us> - 2.6.1-2
 - add upstream patch for rhbz#2262724
 

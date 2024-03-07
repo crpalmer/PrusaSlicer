@@ -7,7 +7,7 @@
 %endif
 
 Name:           prusa-slicer
-Version:        2.6.1
+Version:        2.7.0
 Release:        %autorelease
 Summary:        3D printing slicer optimized for Prusa printers
 
@@ -23,6 +23,9 @@ License:        AGPLv3
 URL:            https://github.com/prusa3d/PrusaSlicer/
 Source0:        https://github.com/prusa3d/PrusaSlicer/archive/version_%version.tar.gz
 Source2:        %name.appdata.xml
+%global libbgcode_commit 33a1eebfb8e65f333c057c13734f3a838e31d433
+Source3:        https://github.com/prusa3d/libbgcode/archive/%{libbgcode_commit}.tar.gz#/libbgcode-%{libbgcode_commit}.tar.gz
+Source4:        https://github.com/atomicobject/heatshrink/archive/refs/tags/v0.4.1.tar.gz#/heatshrink-0.4.1.tar.gz
 
 # Fix a couple of segfaults that happen with wxWidgets 3.2 (from Debian)
 Patch5:         prusa-slicer-fix-uninitialized-imgui-segfault.patch
@@ -41,8 +44,6 @@ Patch394:       prusa-slicer-pr-11769.patch
 Patch395:       prusa-slicer-opencascade-7.6.3.patch
 # https://github.com/prusa3d/PrusaSlicer/pull/10390
 Patch397:       prusa-slicer-pr-10390.patch
-# https://github.com/prusa3d/PrusaSlicer/pull/10811
-Patch399:       24a5ebd65c9d25a0fd69a3716d079fd1b00eb15c.patch
 
 # Highly-parallel uild can run out of memory on PPC64le
 %ifarch ppc64le
@@ -55,6 +56,7 @@ ExcludeArch:    %{ix86}
 %endif
 
 BuildRequires:  boost-devel
+BuildRequires:  catch2-devel
 BuildRequires:  cmake
 BuildRequires:  cereal-devel
 BuildRequires:  CGAL-devel
@@ -214,6 +216,16 @@ Provides: bundled(semver) = 1.0.0
 # Upstream: https://sourceforge.net/projects/shinyprofiler/
 Provides: bundled(shinyprofiler) = 2.6~rc1
 
+# Not packaged in Fedora (but could be).
+# License: AGPL-3.0-only
+# Upstream: https://github.com/prusa3d/libbgcode
+Provides: bundled(libbgcode)
+
+# Not packaged in Fedora (but could be).
+# License: ISC
+# Upstream: https://github.com/atomicobject/heatshrink
+Provides: bundled(heatshrink) = 0.4.1
+
 # In case someone tries to install the upstream name
 Provides: PrusaSlicer = %version-%release
 
@@ -269,6 +281,16 @@ unbundle () {
 
 unbundle eigen
 
+tar xvzf %SOURCE3 && mv libbgcode-* libbgcode
+sed -i 's#set(LibBGCode_SOURCE_DIR ""#set(LibBGCode_SOURCE_DIR "../..//libbgcode"#' deps/+LibBGCode/LibBGCode.cmake
+
+tar xvzf %SOURCE4 && mv heatshrink-* heatshrink
+sed -i 's#URL https.*#SOURCE_DIR ../../heatshrink#' deps/+heatshrink/heatshrink.cmake
+
+mkdir deps/ignored
+mv deps/+* deps/ignored
+mv deps/ignored/+LibBGCode deps/ignored/+heatshrink deps
+
 # These tests were fixed but the fixes were undone upsteam with commit ac6969c
 # https://github.com/prusa3d/PrusaSlicer/issues/2288
 # Just remove them for now
@@ -289,6 +311,7 @@ commit "Disable voronoi test"
 # -DSLIC3R_WX_STABLE=1 - Allow use of wxGTK version 3.0 instead of 3.1.
 %cmake -DSLIC3R_PCH=0 -DSLIC3R_FHS=1 -DSLIC3R_WX_STABLE=1 -DSLIC3R_GTK=3 \
     -DSLIC3R_BUILD_TESTS=1 -DCMAKE_BUILD_TYPE=Release \
+    -DPrusaSlicer_BUILD_DEPS:BOOL=ON \
 %if %{with perltests}
     -DSLIC3R_PERL_XS=1
 %endif
