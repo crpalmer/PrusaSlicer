@@ -7,7 +7,7 @@
 %endif
 
 Name:           prusa-slicer
-Version:        2.7.1
+Version:        2.7.2
 Release:        %autorelease
 Summary:        3D printing slicer optimized for Prusa printers
 
@@ -292,20 +292,6 @@ unbundle () {
 }
 
 unbundle eigen
-
-# These tests were fixed but the fixes were undone upsteam with commit ac6969c
-# https://github.com/prusa3d/PrusaSlicer/issues/2288
-# Just remove them for now
-rm -f t/combineinfill.t t/custom_gcode.t t/fill.t t/multi.t t/retraction.t t/skirt_brim.t
-commit "Remove xfail tests."
-
-# compiling test_voronoi.cpp seems to hang...
-# Fixed with binutils-2.38-6.fc37 (bug 2059646)
-%if 0%{?fedora} < 37
-sed -i tests/libslic3r/CMakeLists.txt -e '\@test_voronoi.cpp@d'
-commit "Disable voronoi test"
-%endif
-
 
 %build
 # -DSLIC3R_PCH=0 - Disable precompiled headers, which break cmake for some reason
