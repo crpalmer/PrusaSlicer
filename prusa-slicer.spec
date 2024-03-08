@@ -308,8 +308,7 @@ commit "Disable voronoi test"
 %build
 # -DSLIC3R_PCH=0 - Disable precompiled headers, which break cmake for some reason
 # -DSLIC3R_FHS=1 - Enable FHS layout instead of installing things into the resources directory
-# -DSLIC3R_WX_STABLE=1 - Allow use of wxGTK version 3.0 instead of 3.1.
-%cmake -DSLIC3R_PCH=0 -DSLIC3R_FHS=1 -DSLIC3R_WX_STABLE=1 -DSLIC3R_GTK=3 \
+%cmake -DSLIC3R_PCH=0 -DSLIC3R_FHS=1 -DSLIC3R_GTK=3 \
     -DSLIC3R_BUILD_TESTS=1 -DCMAKE_BUILD_TYPE=Release \
     -DPrusaSlicer_BUILD_DEPS:BOOL=ON \
 %if %{with perltests}
