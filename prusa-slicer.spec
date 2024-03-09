@@ -263,12 +263,24 @@ commit () { git commit -q -a -m "$1" --author "%{__scm_author}"; }
 sed -i 's/UNKNOWN/Fedora/' version.inc
 commit "Fix version string"
 
+( cd src && tar xvzf %SOURCE3 && mv libbgcode-* libbgcode )
+sed -i 's#set(LibBGCode_SOURCE_DIR ""#set(LibBGCode_SOURCE_DIR "../../src/libbgcode"#' deps/+LibBGCode/LibBGCode.cmake
+
+( cd src && tar xvzf %SOURCE4 && mv heatshrink-* heatshrink )
+sed -i 's#URL https.*#SOURCE_DIR ../../src/heatshrink#' deps/+heatshrink/heatshrink.cmake
+
+mkdir deps/ignored
+mv deps/+* deps/ignored
+mv deps/ignored/+LibBGCode deps/ignored/+heatshrink deps
+
 # Copy out specific license files so we can reference them later.
 license () { mv src/$1/$2 $2-$1; git add $2-$1; echo %%license $2-$1 >> license-files; }
 license agg copying
 license avrdude COPYING
 license imgui LICENSE.txt
 license libnest2d LICENSE.txt
+license libbgcode LICENSE
+license heatshrink LICENSE
 git add license-files
 commit "Move license files"
 
@@ -280,16 +292,6 @@ unbundle () {
 }
 
 unbundle eigen
-
-tar xvzf %SOURCE3 && mv libbgcode-* libbgcode
-sed -i 's#set(LibBGCode_SOURCE_DIR ""#set(LibBGCode_SOURCE_DIR "../..//libbgcode"#' deps/+LibBGCode/LibBGCode.cmake
-
-tar xvzf %SOURCE4 && mv heatshrink-* heatshrink
-sed -i 's#URL https.*#SOURCE_DIR ../../heatshrink#' deps/+heatshrink/heatshrink.cmake
-
-mkdir deps/ignored
-mv deps/+* deps/ignored
-mv deps/ignored/+LibBGCode deps/ignored/+heatshrink deps
 
 # These tests were fixed but the fixes were undone upsteam with commit ac6969c
 # https://github.com/prusa3d/PrusaSlicer/issues/2288
