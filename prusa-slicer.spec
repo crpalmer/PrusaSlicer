@@ -30,6 +30,10 @@ Source4:        https://github.com/atomicobject/heatshrink/archive/refs/tags/v0.
 # Fix a couple of segfaults that happen with wxWidgets 3.2 (from Debian)
 Patch5:         prusa-slicer-fix-uninitialized-imgui-segfault.patch
 
+# Workaround https://github.com/prusa3d/PrusaSlicer/issues/12573
+# with https://github.com/prusa3d/PrusaSlicer/pull/12574
+Patch6:         prusa-slicer-pr-12574.patch
+
 # Beware!
 # Patches >= 340 are only applied on Fedora 34+
 # Patches >= 350 are only applied on Fedora 35+

@@ -1,0 +1,21 @@
+commit 69a9325e27c595370237966083b710af562b79ac (HEAD -> issue-12573)
+Author: Jan Pazdziora <adelton@fedoraproject.org>
+Date:   Wed Apr 10 20:38:41 2024 +0200
+
+    On s390x, the distance seems to be a tiny bit off zero.
+    
+    Fixes #12573.
+
+diff --git a/tests/libslic3r/test_point.cpp b/tests/libslic3r/test_point.cpp
+index 06d4433b0..1068761b5 100644
+--- a/tests/libslic3r/test_point.cpp
++++ b/tests/libslic3r/test_point.cpp
+@@ -33,7 +33,7 @@ TEST_CASE("Distance to line", "[Point]") {
+ 
+ TEST_CASE("Distance to diagonal line", "[Point]") {
+     const Line line{{50, 50}, {125, -25}};
+-    CHECK(std::abs(line.distance_to(Point{100, 0})) == Approx(0));
++    CHECK(std::abs(line.distance_to(Point{100, 0})) == Approx(0).margin(std::numeric_limits<float>::epsilon()));
+ }
+ 
+ TEST_CASE("Perp distance to line does not overflow", "[Point]") {
