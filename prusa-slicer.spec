@@ -19,7 +19,8 @@ Summary:        3D printing slicer optimized for Prusa printers
 # F31) but the AGPLv3 dominates in the final executable.
 # Technically the appdata.xml file is 0BSD but it seems quite pointless to list
 # that here.
-License:        AGPLv3
+# Automatically converted from old format: AGPLv3
+License:        AGPL-3.0-only
 URL:            https://github.com/prusa3d/PrusaSlicer/
 Source0:        https://github.com/prusa3d/PrusaSlicer/archive/version_%version.tar.gz
 Source2:        %name.appdata.xml
