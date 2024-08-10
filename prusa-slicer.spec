@@ -7,7 +7,7 @@
 %endif
 
 Name:           prusa-slicer
-Version:        2.7.4
+Version:        2.8.0
 Release:        %autorelease
 Summary:        3D printing slicer optimized for Prusa printers
 
@@ -24,7 +24,7 @@ License:        AGPL-3.0-only
 URL:            https://github.com/prusa3d/PrusaSlicer/
 Source0:        https://github.com/prusa3d/PrusaSlicer/archive/version_%version.tar.gz
 Source2:        %name.appdata.xml
-%global libbgcode_commit 33a1eebfb8e65f333c057c13734f3a838e31d433
+%global libbgcode_commit 638538cba6731eeafd47d332df70426d619532b5
 Source3:        https://github.com/prusa3d/libbgcode/archive/%{libbgcode_commit}.tar.gz#/libbgcode-%{libbgcode_commit}.tar.gz
 Source4:        https://github.com/atomicobject/heatshrink/archive/refs/tags/v0.4.1.tar.gz#/heatshrink-0.4.1.tar.gz
 Source5:        https://github.com/prusa3d/openvdb/archive/a68fd58d0e2b85f01adeb8b13d7555183ab10aa5.tar.gz#/openvdb-8.2.tar.gz
@@ -48,8 +48,6 @@ Patch351:       https://github.com/archlinux/svntogit-community/blob/1dea61c0b5/
 Patch394:       prusa-slicer-pr-11769.patch
 # Work with OpenCASCADE 7.8.0 which is in Fedora 41
 Patch395:       prusa-slicer-opencascade.patch
-# https://github.com/prusa3d/PrusaSlicer/pull/10390
-Patch397:       prusa-slicer-pr-10390.patch
 
 # Highly-parallel uild can run out of memory on PPC64le
 %ifarch ppc64le
@@ -94,7 +92,6 @@ BuildRequires:  wxGTK-devel
 # Things we wish we could unbundle
 #BuildRequires:  admesh-devel >= 0.98.1
 #BuildRequires:  polyclipping-devel >= 6.2.0
-#BuildRequires:  boost-nowide-devel
 
 # For the %%_udevrulesdir macro
 BuildRequires:  systemd
@@ -156,13 +153,6 @@ Provides: bundled(agg) = 2.4
 # License: GPLv2+
 # Upstream: http://www.nongnu.org/avrdude
 Provides: bundled(avrdude) = 6.3
-
-# This could be unbundled, but the Fedora package is broken....
-# This is a version from 2017, seemingly the last commit available.
-# Fedora bug: https://bugzilla.redhat.com/show_bug.cgi?id=1712550
-# License: Boost
-# Upstream: https://github.com/artyom-beilis/nowide
-Provides: bundled(boost-nowide)
 
 # Not packaged in Fedora, but could be.
 # License: MIT
@@ -410,7 +400,7 @@ desktop-file-validate %buildroot%_datadir/applications/PrusaGcodeviewer.desktop
 %_datadir/applications/PrusaSlicer.desktop
 %_datadir/appdata/%name.appdata.xml
 %dir %_datadir/PrusaSlicer
-%_datadir/PrusaSlicer/{icons,models,profiles,shaders,shapes,udev,applications,data}/
+%_datadir/PrusaSlicer/{icons,models,profiles,shaders,shapes,udev,applications,data,web}/
 %if !0%{?flatpak}
 %_udevrulesdir/90-3dconnexion.rules
 %endif
