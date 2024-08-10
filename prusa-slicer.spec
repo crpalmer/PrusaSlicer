@@ -27,6 +27,7 @@ Source2:        %name.appdata.xml
 %global libbgcode_commit 33a1eebfb8e65f333c057c13734f3a838e31d433
 Source3:        https://github.com/prusa3d/libbgcode/archive/%{libbgcode_commit}.tar.gz#/libbgcode-%{libbgcode_commit}.tar.gz
 Source4:        https://github.com/atomicobject/heatshrink/archive/refs/tags/v0.4.1.tar.gz#/heatshrink-0.4.1.tar.gz
+Source5:        https://github.com/prusa3d/openvdb/archive/a68fd58d0e2b85f01adeb8b13d7555183ab10aa5.tar.gz#/openvdb-8.2.tar.gz
 
 # Fix a couple of segfaults that happen with wxWidgets 3.2 (from Debian)
 Patch5:         prusa-slicer-fix-uninitialized-imgui-segfault.patch
@@ -82,8 +83,9 @@ BuildRequires:  libgudev
 BuildRequires:  nanosvg-devel
 BuildRequires:  NLopt-devel
 BuildRequires:  opencascade-devel
-BuildRequires:  openvdb
-BuildRequires:  openvdb-devel
+# Workaround https://bugzilla.redhat.com/show_bug.cgi?id=2301103
+# BuildRequires:  openvdb
+# BuildRequires:  openvdb-devel
 BuildRequires:  qhull-devel
 BuildRequires:  systemd-devel
 BuildRequires:  tbb-devel
@@ -231,6 +233,12 @@ Provides: bundled(libbgcode)
 # Upstream: https://github.com/atomicobject/heatshrink
 Provides: bundled(heatshrink) = 0.4.1
 
+# Workaround https://bugzilla.redhat.com/show_bug.cgi?id=2301103
+# License: MPL 2.0
+# Upstream: https://github.com/AcademySoftwareFoundation/openvdb
+# Upstream: https://github.com/prusa3d/openvdb
+Provides: bundled(openvdb) = 8.2.0
+
 # In case someone tries to install the upstream name
 Provides: PrusaSlicer = %version-%release
 
@@ -274,9 +282,12 @@ sed -i 's#set(LibBGCode_SOURCE_DIR ""#set(LibBGCode_SOURCE_DIR "../../src/libbgc
 ( cd src && tar xvzf %SOURCE4 && mv heatshrink-* heatshrink )
 sed -i 's#URL https.*#SOURCE_DIR ../../src/heatshrink#' deps/+heatshrink/heatshrink.cmake
 
+( cd src && tar xvzf %SOURCE5 && mv openvdb-* openvdb )
+sed -i 's#URL https.*#SOURCE_DIR ../../src/openvdb#; s/-DUSE_BLOSC=ON/-DUSE_BLOSC=OFF/' deps/+OpenVDB/OpenVDB.cmake
+
 mkdir deps/ignored
 mv deps/+* deps/ignored
-mv deps/ignored/+LibBGCode deps/ignored/+heatshrink deps
+mv deps/ignored/+LibBGCode deps/ignored/+heatshrink deps/ignored/+OpenVDB deps
 
 # Copy out specific license files so we can reference them later.
 license () { mv src/$1/$2 $2-$1; git add $2-$1; echo %%license $2-$1 >> license-files; }
@@ -286,6 +297,7 @@ license imgui LICENSE.txt
 license libnest2d LICENSE.txt
 license libbgcode LICENSE
 license heatshrink LICENSE
+license openvdb LICENSE
 git add license-files
 commit "Move license files"
 
@@ -304,6 +316,7 @@ unbundle eigen
 %cmake -DSLIC3R_PCH=0 -DSLIC3R_FHS=1 -DSLIC3R_GTK=3 \
     -DSLIC3R_BUILD_TESTS=1 -DCMAKE_BUILD_TYPE=Release \
     -DPrusaSlicer_BUILD_DEPS:BOOL=ON \
+    -DOPENVDB_USE_STATIC_LIBS=1 \
 %if %{with perltests}
     -DSLIC3R_PERL_XS=1
 %endif
