@@ -309,6 +309,7 @@ unbundle eigen
     -DSLIC3R_BUILD_TESTS=1 -DCMAKE_BUILD_TYPE=Release \
     -DPrusaSlicer_BUILD_DEPS:BOOL=ON \
     -DOPENVDB_USE_STATIC_LIBS=1 \
+    -DCMAKE_EXE_LINKER_FLAGS=-lcrypto \
 %if %{with perltests}
     -DSLIC3R_PERL_XS=1
 %endif
