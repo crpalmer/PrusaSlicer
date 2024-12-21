@@ -50,6 +50,8 @@ Patch394:       prusa-slicer-pr-11769.patch
 Patch395:       prusa-slicer-opencascade.patch
 # https://github.com/prusa3d/PrusaSlicer/pull/13242
 Patch401:       prusa-slicer-pr-13242.patch
+# https://github.com/prusa3d/PrusaSlicer/pull/13081
+Patch421:       prusa-slicer-pr-13081.patch
 
 # Highly-parallel uild can run out of memory on PPC64le
 %ifarch ppc64le
