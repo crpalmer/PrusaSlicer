@@ -36,6 +36,9 @@ Patch5:         prusa-slicer-fix-uninitialized-imgui-segfault.patch
 # with https://github.com/prusa3d/PrusaSlicer/pull/12574
 Patch6:         prusa-slicer-pr-12574.patch
 
+# https://github.com/prusa3d/PrusaSlicer/pull/13609/commits/f7a25cae1820444f4e999b429598ca477a35ccb8
+Patch7:       prusa-slicer-pr-13609-boost.patch
+
 # Beware!
 # Patches >= 340 are only applied on Fedora 34+
 # Patches >= 350 are only applied on Fedora 35+
