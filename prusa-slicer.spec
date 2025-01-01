@@ -296,6 +296,8 @@ license openvdb LICENSE
 git add license-files
 commit "Move license files"
 
+rm ./cmake/modules/FindEigen3.cmake
+
 %build
 # -DSLIC3R_PCH=0 - Disable precompiled headers, which break cmake for some reason
 # -DSLIC3R_FHS=1 - Enable FHS layout instead of installing things into the resources directory
