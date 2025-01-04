@@ -32,6 +32,9 @@ Source5:        https://github.com/prusa3d/openvdb/archive/a68fd58d0e2b85f01adeb
 # Fix a couple of segfaults that happen with wxWidgets 3.2 (from Debian)
 Patch5:         prusa-slicer-fix-uninitialized-imgui-segfault.patch
 
+# https://github.com/prusa3d/PrusaSlicer/pull/13896
+Patch6:		prusa-slicer-pr-13896.patch
+
 # Beware!
 # Patches >= 340 are only applied on Fedora 34+
 # Patches >= 350 are only applied on Fedora 35+
