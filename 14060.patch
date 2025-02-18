@@ -1,0 +1,1051 @@
+From d0ca392d8c2a2e47bf9b146f50f584bcd24da70f Mon Sep 17 00:00:00 2001
+From: jalapnopuzzle <8386278+jalapenopuzzle@users.noreply.github.com>
+Date: Sun, 26 Jan 2025 13:18:47 +1100
+Subject: [PATCH 1/3] #13420 GCodeWriter separate XYZ_EPSILON consistent with
+ XYZF_EXPORT_DIGITS and add unit tests
+
+#13420 test_gcodewriter.cpp add tests for XYZF_EXPORT_DIGITS
+
+Check that movement GCodes are emitted / not emitted according to XYZF_EXPORT_DIGITS.
+The new tests demonstrate that XYZF_EXPORT_DIGITS is NOT respected.
+
+#13420 GCodeWriter separate XYZ_EPSILON consistent with XYZF_EXPORT_DIGITS
+
+The value of EPSILON=1e-4 (0.0001) in libslicer3r.h is inconsistent with XYZF_EXPORT_DIGITS=3 (0.001).
+This change addresses the inconsistency by introducing XYZ_EPSILON which is computed from XYZ_EXPORT_DIGITS, and changing all relevant GCodeWriter functions which used EPSILON to use XYZ_EPSILON instead.
+---
+ src/libslic3r/GCode/GCodeWriter.cpp  |   6 +-
+ src/libslic3r/GCode/GCodeWriter.hpp  |   3 +
+ tests/fff_print/test_gcodewriter.cpp | 241 +++++++++++++++++++++++++++
+ 3 files changed, 247 insertions(+), 3 deletions(-)
+
+diff --git a/src/libslic3r/GCode/GCodeWriter.cpp b/src/libslic3r/GCode/GCodeWriter.cpp
+index 4aa43896416..3b51c4daab0 100644
+--- a/src/libslic3r/GCode/GCodeWriter.cpp
++++ b/src/libslic3r/GCode/GCodeWriter.cpp
+@@ -329,9 +329,9 @@ std::string GCodeWriter::travel_to_xy_G2G3IJ(const Vec2d &point, const Vec2d &ij
+ 
+ std::string GCodeWriter::travel_to_xyz(const Vec3d &to, const std::string_view comment)
+ {
+-    if (std::abs(to.x() - m_pos.x()) < EPSILON && std::abs(to.y() - m_pos.y()) < EPSILON) {
++    if (std::abs(to.x() - m_pos.x()) < GCodeFormatter::XYZ_EPSILON && std::abs(to.y() - m_pos.y()) < GCodeFormatter::XYZ_EPSILON) {
+         return this->travel_to_z(to.z(), comment);
+-    } else if (std::abs(to.z() - m_pos.z()) < EPSILON) {
++    } else if (std::abs(to.z() - m_pos.z()) < GCodeFormatter::XYZ_EPSILON) {
+         return this->travel_to_xy(to.head<2>(), comment);
+     } else {
+         std::string result{this->get_travel_to_xyz_gcode(to, comment)};
+@@ -365,7 +365,7 @@ std::string GCodeWriter::get_travel_to_xyz_gcode(const Vec3d &to, const std::str
+ 
+ std::string GCodeWriter::travel_to_z(double z, const std::string_view comment)
+ {
+-    if (std::abs(m_pos.z() - z) < EPSILON) {
++    if (std::abs(m_pos.z() - z) < GCodeFormatter::XYZ_EPSILON) {
+         return "";
+     } else {
+         m_pos.z() = z;
+diff --git a/src/libslic3r/GCode/GCodeWriter.hpp b/src/libslic3r/GCode/GCodeWriter.hpp
+index 47aedab6800..48988d3d679 100644
+--- a/src/libslic3r/GCode/GCodeWriter.hpp
++++ b/src/libslic3r/GCode/GCodeWriter.hpp
+@@ -176,6 +176,9 @@ class GCodeFormatter {
+     static constexpr const std::array<double, 10> pow_10    {   1.,     10.,    100.,    1000.,    10000.,    100000.,    1000000.,    10000000.,    100000000.,    1000000000.};
+     static constexpr const std::array<double, 10> pow_10_inv{1./1.,  1./10., 1./100., 1./1000., 1./10000., 1./100000., 1./1000000., 1./10000000., 1./100000000., 1./1000000000.};
+ 
++    // Compute XYZ_EPSILON based on XYZF_EXPORT_DIGITS
++    static constexpr double XYZ_EPSILON = pow_10_inv[XYZF_EXPORT_DIGITS];
++
+     // Quantize doubles to a resolution of the G-code.
+     static double                                 quantize(double v, size_t ndigits) { return std::round(v * pow_10[ndigits]) * pow_10_inv[ndigits]; }
+     static double                                 quantize_xyzf(double v) { return quantize(v, XYZF_EXPORT_DIGITS); }
+diff --git a/tests/fff_print/test_gcodewriter.cpp b/tests/fff_print/test_gcodewriter.cpp
+index 93888a988f1..a67d60e8fb3 100644
+--- a/tests/fff_print/test_gcodewriter.cpp
++++ b/tests/fff_print/test_gcodewriter.cpp
+@@ -32,3 +32,244 @@ SCENARIO("set_speed emits values with fixed-point output.", "[GCodeWriter]") {
+         }
+     }
+ }
++
++TEST_CASE("GCodeWriter emits G1 code correctly according to XYZF_EXPORT_DIGITS", "[GCodeWriter]") {
++    GCodeWriter writer;
++
++    SECTION("Check quantize") {
++        CHECK(GCodeFormatter::quantize(1.0,0) == 1.);
++        CHECK(GCodeFormatter::quantize(0.0,0) == 0.);
++        CHECK(GCodeFormatter::quantize(0.1,0) == 0);
++
++        CHECK(GCodeFormatter::quantize(1.0,1) == 1.);
++        CHECK(GCodeFormatter::quantize(0.0,1) == 0.);
++        CHECK(GCodeFormatter::quantize(0.1,1) == Approx(0.1));
++        CHECK(GCodeFormatter::quantize(0.01,1) == 0.);
++
++        CHECK(GCodeFormatter::quantize(1.0,2) == 1.);
++        CHECK(GCodeFormatter::quantize(0.0,2) == 0.);
++        CHECK(GCodeFormatter::quantize(0.1,2) == Approx(0.1));
++        CHECK(GCodeFormatter::quantize(0.01,2) == Approx(0.01));
++        CHECK(GCodeFormatter::quantize(0.001,2) == 0.);
++
++        CHECK(GCodeFormatter::quantize(1.0,3) == 1.);
++        CHECK(GCodeFormatter::quantize(0.0,3) == 0.);
++        CHECK(GCodeFormatter::quantize(0.1,3) == Approx(0.1));
++        CHECK(GCodeFormatter::quantize(0.01,3) == Approx(0.01));
++        CHECK(GCodeFormatter::quantize(0.001,3) == Approx(0.001));
++        CHECK(GCodeFormatter::quantize(0.0001,3) == 0.);
++
++        CHECK(GCodeFormatter::quantize(1.0,4) == 1.);
++        CHECK(GCodeFormatter::quantize(0.0,4) == 0.);
++        CHECK(GCodeFormatter::quantize(0.1,4) == Approx(0.1));
++        CHECK(GCodeFormatter::quantize(0.01,4) == Approx(0.01));
++        CHECK(GCodeFormatter::quantize(0.001,4) == Approx(0.001));
++        CHECK(GCodeFormatter::quantize(0.0001,4) == Approx(0.0001));
++        CHECK(GCodeFormatter::quantize(0.00001,4) == 0.);
++
++        CHECK(GCodeFormatter::quantize(1.0,5) == 1.);
++        CHECK(GCodeFormatter::quantize(0.0,5) == 0.);
++        CHECK(GCodeFormatter::quantize(0.1,5) == Approx(0.1));
++        CHECK(GCodeFormatter::quantize(0.01,5) == Approx(0.01));
++        CHECK(GCodeFormatter::quantize(0.001,5) == Approx(0.001));
++        CHECK(GCodeFormatter::quantize(0.0001,5) == Approx(0.0001));
++        CHECK(GCodeFormatter::quantize(0.00001,5) == Approx(0.00001));
++        CHECK(GCodeFormatter::quantize(0.000001,5) == 0.);
++
++        CHECK(GCodeFormatter::quantize(1.0,6) == 1.);
++        CHECK(GCodeFormatter::quantize(0.0,6) == 0.);
++        CHECK(GCodeFormatter::quantize(0.1,6) == Approx(0.1));
++        CHECK(GCodeFormatter::quantize(0.01,6) == Approx(0.01));
++        CHECK(GCodeFormatter::quantize(0.001,6) == Approx(0.001));
++        CHECK(GCodeFormatter::quantize(0.0001,6) == Approx(0.0001));
++        CHECK(GCodeFormatter::quantize(0.00001,6) == Approx(0.00001));
++        CHECK(GCodeFormatter::quantize(0.000001,6) == Approx(0.000001));
++        CHECK(GCodeFormatter::quantize(0.0000001,6) == 0.);
++    }
++
++    SECTION("Check pow_10") {
++        // IEEE 754 floating point numbers can represent these numbers EXACTLY.
++        CHECK(GCodeFormatter::pow_10[0] == 1.);
++        CHECK(GCodeFormatter::pow_10[1] == 10.);
++        CHECK(GCodeFormatter::pow_10[2] == 100.);
++        CHECK(GCodeFormatter::pow_10[3] == 1000.);
++        CHECK(GCodeFormatter::pow_10[4] == 10000.);
++        CHECK(GCodeFormatter::pow_10[5] == 100000.);
++        CHECK(GCodeFormatter::pow_10[6] == 1000000.);
++        CHECK(GCodeFormatter::pow_10[7] == 10000000.);
++        CHECK(GCodeFormatter::pow_10[8] == 100000000.);
++        CHECK(GCodeFormatter::pow_10[9] == 1000000000.);
++    }
++
++    SECTION("Check pow_10_inv") {
++        // IEEE 754 floating point numbers can NOT represent these numbers exactly.
++        CHECK(GCodeFormatter::pow_10_inv[0] == 1.);
++        CHECK(GCodeFormatter::pow_10_inv[1] == 0.1);
++        CHECK(GCodeFormatter::pow_10_inv[2] == 0.01);
++        CHECK(GCodeFormatter::pow_10_inv[3] == 0.001);
++        CHECK(GCodeFormatter::pow_10_inv[4] == 0.0001);
++        CHECK(GCodeFormatter::pow_10_inv[5] == 0.00001);
++        CHECK(GCodeFormatter::pow_10_inv[6] == 0.000001);
++        CHECK(GCodeFormatter::pow_10_inv[7] == 0.0000001);
++        CHECK(GCodeFormatter::pow_10_inv[8] == 0.00000001);
++        CHECK(GCodeFormatter::pow_10_inv[9] == 0.000000001);
++    }
++
++    SECTION("travel_to_z Emit G1 code for very significant movement") {
++        double z1 = 10.0;
++        std::string result1{ writer.travel_to_z(z1) };
++        CHECK(result1 == "G1 Z10 F7800\n");
++
++        double z2 = z1 * 2;
++        std::string result2{ writer.travel_to_z(z2) };
++        CHECK(result2 == "G1 Z20 F7800\n");
++    }
++
++    SECTION("travel_to_z Emit G1 code for significant movement") {
++        double z1 = 10.0;
++        std::string result1{ writer.travel_to_z(z1) };
++        CHECK(result1 == "G1 Z10 F7800\n");
++
++        // This should test with XYZ_EPSILON exactly,
++        // but IEEE 754 floating point numbers cannot pass the test.
++        double z2 = z1 + GCodeFormatter::XYZ_EPSILON * 1.001;
++        std::string result2{ writer.travel_to_z(z2) };
++
++        std::ostringstream oss;
++        oss << "G1 Z"
++            << GCodeFormatter::quantize_xyzf(z2)
++            << " F7800\n";
++
++        CHECK(result2 == oss.str());
++    }
++
++    SECTION("travel_to_z Do not emit G1 code for insignificant movement") {
++        double z1 = 10.0;
++        std::string result1{ writer.travel_to_z(z1) };
++        CHECK(result1 == "G1 Z10 F7800\n");
++
++        // Movement smaller than XYZ_EPSILON
++        double z2 = z1 + (GCodeFormatter::XYZ_EPSILON * 0.999);
++        std::string result2{ writer.travel_to_z(z2) };
++        CHECK(result2 == "");
++
++        double z3 = z1 + (GCodeFormatter::XYZ_EPSILON * 0.1);
++        std::string result3{ writer.travel_to_z(z3) };
++        CHECK(result3 == "");
++    }
++
++    SECTION("travel_to_xyz Emit G1 code for very significant movement") {
++        Vec3d v1{10.0, 10.0, 10.0};
++        std::string result1{ writer.travel_to_xyz(v1) };
++        CHECK(result1 == "G1 X10 Y10 Z10 F7800\n");
++
++        Vec3d v2 = v1 * 2;
++        std::string result2{ writer.travel_to_xyz(v2) };
++        CHECK(result2 == "G1 X20 Y20 Z20 F7800\n");
++    }
++
++    SECTION("travel_to_xyz Emit G1 code for significant XYZ movement") {
++        Vec3d v1{10.0, 10.0, 10.0};
++        std::string result1{ writer.travel_to_xyz(v1) };
++        CHECK(result1 == "G1 X10 Y10 Z10 F7800\n");
++
++        Vec3d v2 = v1;
++        // This should test with XYZ_EPSILON exactly,
++        // but IEEE 754 floating point numbers cannot pass the test.
++        v2.array() += GCodeFormatter::XYZ_EPSILON * 1.001;
++        std::string result2{ writer.travel_to_xyz(v2) };
++
++        std::ostringstream oss;
++        oss << "G1 X"
++            << GCodeFormatter::quantize_xyzf(v2.x())
++            << " Y"
++            << GCodeFormatter::quantize_xyzf(v2.y())
++            << " Z"
++            << GCodeFormatter::quantize_xyzf(v2.z())
++            << " F7800\n";
++
++        CHECK(result2 == oss.str());
++    }
++
++    SECTION("travel_to_xyz Emit G1 code for significant X movement") {
++        Vec3d v1{10.0, 10.0, 10.0};
++        std::string result1{ writer.travel_to_xyz(v1) };
++        CHECK(result1 == "G1 X10 Y10 Z10 F7800\n");
++
++        Vec3d v2 = v1;
++        // This should test with XYZ_EPSILON exactly,
++        // but IEEE 754 floating point numbers cannot pass the test.
++        v2.x() += GCodeFormatter::XYZ_EPSILON * 1.001;
++        std::string result2{ writer.travel_to_xyz(v2) };
++
++        std::ostringstream oss;
++        // Only X needs to be emitted in this case,
++        // but this is how the code currently works.
++        oss << "G1 X"
++            << GCodeFormatter::quantize_xyzf(v2.x())
++            << " Y"
++            << GCodeFormatter::quantize_xyzf(v2.y())
++            << " F7800\n";
++
++        CHECK(result2 == oss.str());
++    }
++
++    SECTION("travel_to_xyz Emit G1 code for significant Y movement") {
++        Vec3d v1{10.0, 10.0, 10.0};
++        std::string result1{ writer.travel_to_xyz(v1) };
++        CHECK(result1 == "G1 X10 Y10 Z10 F7800\n");
++
++        Vec3d v2 = v1;
++        // This should test with XYZ_EPSILON exactly,
++        // but IEEE 754 floating point numbers cannot pass the test.
++        v2.y() += GCodeFormatter::XYZ_EPSILON * 1.001;
++        std::string result2{ writer.travel_to_xyz(v2) };
++
++        std::ostringstream oss;
++        // Only Y needs to be emitted in this case,
++        // but this is how the code currently works.
++        oss << "G1 X"
++            << GCodeFormatter::quantize_xyzf(v2.x())
++            << " Y"
++            << GCodeFormatter::quantize_xyzf(v2.y())
++            << " F7800\n";
++
++        CHECK(result2 == oss.str());
++    }
++
++    SECTION("travel_to_xyz Emit G1 code for significant Z movement") {
++        Vec3d v1{10.0, 10.0, 10.0};
++        std::string result1{ writer.travel_to_xyz(v1) };
++        CHECK(result1 == "G1 X10 Y10 Z10 F7800\n");
++
++        Vec3d v2 = v1;
++        // This should test with XYZ_EPSILON exactly,
++        // but IEEE 754 floating point numbers cannot pass the test.
++        v2.z() += GCodeFormatter::XYZ_EPSILON * 1.001;
++        std::string result2{ writer.travel_to_xyz(v2) };
++
++        std::ostringstream oss;
++        oss << "G1 Z"
++            << GCodeFormatter::quantize_xyzf(v2.z())
++            << " F7800\n";
++
++        CHECK(result2 == oss.str());
++    }
++
++    SECTION("travel_to_xyz Do not emit G1 code for insignificant movement") {
++        Vec3d v1{10.0, 10.0, 10.0};
++        std::string result1{ writer.travel_to_xyz(v1) };
++        CHECK(result1 == "G1 X10 Y10 Z10 F7800\n");
++
++        // Movement smaller than XYZ_EPSILON
++        Vec3d v2 = v1;
++        v2.array() += GCodeFormatter::XYZ_EPSILON * 0.999;
++        std::string result2{ writer.travel_to_xyz(v2) };
++        CHECK(result2 == "");
++
++        Vec3d v3 = v1;
++        v3.array() += GCodeFormatter::XYZ_EPSILON * 0.1;
++        std::string result3{ writer.travel_to_xyz(v3) };
++        CHECK(result3 == "");
++    }
++}
+\ No newline at end of file
+
+From 5cd1602c20425ba8c6a2d96cef4e1b81b114865c Mon Sep 17 00:00:00 2001
+From: jalapnopuzzle <8386278+jalapenopuzzle@users.noreply.github.com>
+Date: Sun, 26 Jan 2025 17:09:30 +1100
+Subject: [PATCH 2/3] #13420 GCodeWriter fix maintenance of from/m_pos position
+ change get_travel_to_*_gcode() -> travel_to_*_force()
+
+#13420 generate_ramping_layer_change_gcode() remove const
+
+const prevents calling GCodeGenerator::travel_to functions which change the m_pos internal state.
+
+#13420 GCodeWriter add travel_to_XXX_force methods
+
+These methods allow travel moves to be made without checking the distance against XYZ_EPSILON, which may prevent the move from being emitted. This is useful when we want an important comment to be emitted, like a layer change.
+
+#13420 replace get_travel_to_gcode with travel_to()
+
+get_travel_to_gcode() functions don't maintain m_pos, which later causes incorrect speed calculations as the movement vector is measured incorrectly.
+
+#13420 GCodeWriter remove get_travel_to_gcode()
+
+Ensure that client code can't make moves without maintaining m_pos.
+---
+ src/libslic3r/GCode.cpp                      | 21 ++++------
+ src/libslic3r/GCode.hpp                      |  2 +-
+ src/libslic3r/GCode/GCodeWriter.cpp          | 43 +++++++++++++-------
+ src/libslic3r/GCode/GCodeWriter.hpp          | 41 ++++++++++++++-----
+ src/libslic3r/GCode/WipeTowerIntegration.cpp |  7 +---
+ 5 files changed, 71 insertions(+), 43 deletions(-)
+
+diff --git a/src/libslic3r/GCode.cpp b/src/libslic3r/GCode.cpp
+index 9a81ed8ddc7..4090130a452 100644
+--- a/src/libslic3r/GCode.cpp
++++ b/src/libslic3r/GCode.cpp
+@@ -1276,7 +1276,7 @@ void GCodeGenerator::_do_export(Print& print, GCodeOutputStream &file, Thumbnail
+                 file.write(this->retract_and_wipe());
+                 file.write(m_label_objects.maybe_stop_instance());
+                 const double last_z{this->writer().get_position().z()};
+-                file.write(this->writer().get_travel_to_z_gcode(last_z, "ensure z position"));
++                file.write(this->writer().travel_to_z_force(last_z, "ensure z position"));
+                 const Vec3crd from{to_3d(*this->last_position, scaled(this->m_last_layer_z))};
+                 const Vec3crd to{0, 0, scaled(this->m_last_layer_z)};
+                 file.write(this->travel_to(from, to, ExtrusionRole::None, "move to origin position for next object", [](){return "";}));
+@@ -2245,7 +2245,7 @@ std::string GCodeGenerator::generate_ramping_layer_change_gcode(
+     const Polyline &xy_path,
+     const double initial_elevation,
+     const GCode::Impl::Travels::ElevatedTravelParams &elevation_params
+-) const {
++) {
+     using namespace GCode::Impl::Travels;
+ 
+     const std::vector<double> ensure_points_at_distances = linspace(
+@@ -2263,7 +2263,7 @@ std::string GCodeGenerator::generate_ramping_layer_change_gcode(
+     for (const Vec3crd &point : travel) {
+         const Vec3d gcode_point{this->point_to_gcode(point)};
+         travel_gcode += this->m_writer
+-                            .get_travel_to_xyz_gcode(gcode_point, "layer change");
++                            .travel_to_xyz_force(gcode_point, "layer change");
+     }
+     return travel_gcode;
+ }
+@@ -2970,11 +2970,8 @@ std::string GCodeGenerator::change_layer(
+             gcode += this->retract_and_wipe();
+         }
+         if (!first_layer) {
+-            // travel_to_z is not used as it may not generate the travel if the writter z == print_z.
+-            gcode += this->writer().get_travel_to_z_gcode(print_z, "simple layer change");
+-            Vec3d position{this->writer().get_position()};
+-            position.z() = print_z;
+-            this->writer().update_position(position);
++            // travel_to_z is not used as it may not generate the travel if the writer z == print_z.
++            gcode += this->writer().travel_to_z_force(print_z, "simple layer change");
+         }
+     }
+ 
+@@ -3229,15 +3226,15 @@ std::string GCodeGenerator::travel_to_first_position(const Vec3crd& point, const
+         if (EXTRUDER_CONFIG(retract_length) > 0 && !this->last_position) {
+             if (!this->last_position || EXTRUDER_CONFIG(retract_before_travel) < (this->point_to_gcode(*this->last_position) - gcode_point.head<2>()).norm()) {
+                 gcode += this->writer().retract();
+-                gcode += this->writer().get_travel_to_z_gcode(from_z + lift, "lift");
++                gcode += this->writer().travel_to_z_force(from_z + lift, "lift");
+             }
+         }
+ 
+         const std::string comment{"move to first layer point"};
+ 
+         gcode += insert_gcode();
+-        gcode += this->writer().get_travel_to_xy_gcode(gcode_point.head<2>(), comment);
+-        gcode += this->writer().get_travel_to_z_gcode(gcode_point.z(), comment);
++        gcode += this->writer().travel_to_xy_force(gcode_point.head<2>(), comment);
++        gcode += this->writer().travel_to_z_force(gcode_point.z(), comment);
+ 
+         this->m_avoid_crossing_perimeters.reset_once_modifiers();
+         this->last_position = point.head<2>();
+@@ -3293,7 +3290,7 @@ std::string GCodeGenerator::_extrude(
+         gcode += this->retract_and_wipe();
+         gcode += m_writer.multiple_extruders ? "" : m_label_objects.maybe_change_instance(m_writer);
+         gcode += this->m_writer.travel_to_xy(this->point_to_gcode(path.front().point), comment);
+-        gcode += this->m_writer.get_travel_to_z_gcode(z, comment);
++        gcode += this->m_writer.travel_to_z_force(z, comment);
+     } else if ( this->last_position != path.front().point) {
+         std::string comment = "move to first ";
+         comment += description;
+diff --git a/src/libslic3r/GCode.hpp b/src/libslic3r/GCode.hpp
+index d8ae8e7b655..a9468686436 100644
+--- a/src/libslic3r/GCode.hpp
++++ b/src/libslic3r/GCode.hpp
+@@ -229,7 +229,7 @@ class GCodeGenerator {
+         const Polyline &xy_path,
+         const double initial_elevation,
+         const GCode::Impl::Travels::ElevatedTravelParams &elevation_params
+-    ) const;
++    );
+ 
+     std::vector<GCode::ExtrusionOrder::ExtruderExtrusions> get_sorted_extrusions(
+         const Print &print,
+diff --git a/src/libslic3r/GCode/GCodeWriter.cpp b/src/libslic3r/GCode/GCodeWriter.cpp
+index 3b51c4daab0..94b1ba0b290 100644
+--- a/src/libslic3r/GCode/GCodeWriter.cpp
++++ b/src/libslic3r/GCode/GCodeWriter.cpp
+@@ -295,19 +295,25 @@ std::string GCodeWriter::set_speed(double F, const std::string_view comment, con
+     return w.string();
+ }
+ 
+-std::string GCodeWriter::get_travel_to_xy_gcode(const Vec2d &point, const std::string_view comment) const
++std::string GCodeWriter::travel_to_xy_force(const Vec2d &point, const std::string_view comment)
+ {
+     GCodeG1Formatter w;
+     w.emit_xy(point);
+     w.emit_f(this->config.travel_speed.value * 60.0);
+     w.emit_comment(this->config.gcode_comments, comment);
++    m_pos.head<2>() = point.head<2>();
+     return w.string();
+ }
+ 
+ std::string GCodeWriter::travel_to_xy(const Vec2d &point, const std::string_view comment)
+ {
+-    m_pos.head<2>() = point.head<2>();
+-    return this->get_travel_to_xy_gcode(point, comment);
++    if (std::abs(point.x() - m_pos.x()) < GCodeFormatter::XYZ_EPSILON
++        && std::abs(point.y() - m_pos.y()) < GCodeFormatter::XYZ_EPSILON)
++    {
++        return "";
++    } else {
++        return this->travel_to_xy_force(point, comment);
++    }
+ }
+ 
+ std::string GCodeWriter::travel_to_xy_G2G3IJ(const Vec2d &point, const Vec2d &ij, const bool ccw, const std::string_view comment)
+@@ -329,18 +335,26 @@ std::string GCodeWriter::travel_to_xy_G2G3IJ(const Vec2d &point, const Vec2d &ij
+ 
+ std::string GCodeWriter::travel_to_xyz(const Vec3d &to, const std::string_view comment)
+ {
+-    if (std::abs(to.x() - m_pos.x()) < GCodeFormatter::XYZ_EPSILON && std::abs(to.y() - m_pos.y()) < GCodeFormatter::XYZ_EPSILON) {
+-        return this->travel_to_z(to.z(), comment);
+-    } else if (std::abs(to.z() - m_pos.z()) < GCodeFormatter::XYZ_EPSILON) {
+-        return this->travel_to_xy(to.head<2>(), comment);
++    if (std::abs(to.x() - m_pos.x()) < GCodeFormatter::XYZ_EPSILON
++        && std::abs(to.y() - m_pos.y()) < GCodeFormatter::XYZ_EPSILON
++        && std::abs(to.z() - m_pos.z()) < GCodeFormatter::XYZ_EPSILON)
++    {
++        return "";
++    } else if (
++        std::abs(to.x() - m_pos.x()) < GCodeFormatter::XYZ_EPSILON
++        && std::abs(to.y() - m_pos.y()) < GCodeFormatter::XYZ_EPSILON)
++    {
++        return this->travel_to_z_force(to.z(), comment);
++    } else if (
++        std::abs(to.z() - m_pos.z()) < GCodeFormatter::XYZ_EPSILON)
++    {
++        return this->travel_to_xy_force(to.head<2>(), comment);
+     } else {
+-        std::string result{this->get_travel_to_xyz_gcode(to, comment)};
+-        m_pos = to;
+-        return result;
++        return this->travel_to_xyz_force(to, comment);
+     }
+ }
+ 
+-std::string GCodeWriter::get_travel_to_xyz_gcode(const Vec3d &to, const std::string_view comment) const {
++std::string GCodeWriter::travel_to_xyz_force(const Vec3d &to, const std::string_view comment) {
+     GCodeG1Formatter w;
+     w.emit_xyz(to);
+ 
+@@ -360,6 +374,7 @@ std::string GCodeWriter::get_travel_to_xyz_gcode(const Vec3d &to, const std::str
+     }
+ 
+     w.emit_comment(this->config.gcode_comments, comment);
++    m_pos = to;
+     return w.string();
+ }
+ 
+@@ -368,12 +383,11 @@ std::string GCodeWriter::travel_to_z(double z, const std::string_view comment)
+     if (std::abs(m_pos.z() - z) < GCodeFormatter::XYZ_EPSILON) {
+         return "";
+     } else {
+-        m_pos.z() = z;
+-        return this->get_travel_to_z_gcode(z, comment);
++        return this->travel_to_z_force(z, comment);
+     }
+ }
+ 
+-std::string GCodeWriter::get_travel_to_z_gcode(double z, const std::string_view comment) const
++std::string GCodeWriter::travel_to_z_force(double z, const std::string_view comment)
+ {
+     double speed = this->config.travel_speed_z.value;
+     if (speed == 0.)
+@@ -383,6 +397,7 @@ std::string GCodeWriter::get_travel_to_z_gcode(double z, const std::string_view
+     w.emit_z(z);
+     w.emit_f(speed * 60.0);
+     w.emit_comment(this->config.gcode_comments, comment);
++    m_pos.z() = z;
+     return w.string();
+ }
+ 
+diff --git a/src/libslic3r/GCode/GCodeWriter.hpp b/src/libslic3r/GCode/GCodeWriter.hpp
+index 48988d3d679..ff2a7080150 100644
+--- a/src/libslic3r/GCode/GCodeWriter.hpp
++++ b/src/libslic3r/GCode/GCodeWriter.hpp
+@@ -74,27 +74,46 @@ class GCodeWriter {
+     std::string toolchange(unsigned int extruder_id);
+     std::string set_speed(double F, const std::string_view comment = {}, const std::string_view cooling_marker = {}) const;
+ 
+-    std::string get_travel_to_xy_gcode(const Vec2d &point, const std::string_view comment) const;
+-    std::string travel_to_xy(const Vec2d &point, const std::string_view comment = {});
+-    std::string travel_to_xy_G2G3IJ(const Vec2d &point, const Vec2d &ij, const bool ccw, const std::string_view comment = {});
+-
+     /**
+-     * @brief Return gcode with all three axis defined. Optionally adds feedrate.
+-     *
+-     * Feedrate is added the starting point "from" is specified.
++     * @brief Return gcode to travel to the specified point.
++     * Feed rate is computed based on the vector (to - m_pos).
++     * Maintains the internal m_pos position.
++     * Movements less than XYZ_EPSILON generate no output.
+      *
+-     * @param from Optional starting point of the travel.
+      * @param to Where to travel to.
+      * @param comment Description of the travel purpose.
+      */
+-    std::string get_travel_to_xyz_gcode(const Vec3d &to, const std::string_view comment) const;
+     std::string travel_to_xyz(const Vec3d &to, const std::string_view comment = {});
+-    std::string get_travel_to_z_gcode(double z, const std::string_view comment) const;
++    std::string travel_to_xy(const Vec2d &point, const std::string_view comment = {});
+     std::string travel_to_z(double z, const std::string_view comment = {});
++
++    std::string travel_to_xy_G2G3IJ(const Vec2d &point, const Vec2d &ij, const bool ccw, const std::string_view comment = {});
++
++    /**
++     * @brief Generate G-Code to travel to the specified point unconditionally.
++     * Feed rate is computed based on the vector (to - m_pos).
++     * Maintains the internal m_pos position.
++     * The distance test XYZ_EPSILON is not performed.
++     * @param to The point to travel to.
++     * @param comment Description of the travel purpose.
++     */
++    std::string travel_to_xyz_force(const Vec3d &to, const std::string_view comment = {});
++    std::string travel_to_xy_force(const Vec2d &point, const std::string_view comment = {});
++    std::string travel_to_z_force(double z, const std::string_view comment = {});
++
++    /**
++     * @brief Generate G-Code to move to the specified point while extruding.
++     * Maintains the internal m_pos position.
++     * The distance test XYZ_EPSILON is not performed.
++     * @param point The point to move to.
++     * @param dE The E-steps to extrude while moving.
++     * @param comment Description of the movement purpose.
++     */
+     std::string extrude_to_xy(const Vec2d &point, double dE, const std::string_view comment = {});
+     std::string extrude_to_xyz(const Vec3d &point, double dE, const std::string_view comment = {});
++
+     std::string extrude_to_xy_G2G3IJ(const Vec2d &point, const Vec2d &ij, const bool ccw, double dE, const std::string_view comment);
+-//    std::string extrude_to_xyz(const Vec3d &point, double dE, const std::string_view comment = {});
++
+     std::string retract(bool before_wipe = false);
+     std::string retract_for_toolchange(bool before_wipe = false);
+     std::string unretract();
+diff --git a/src/libslic3r/GCode/WipeTowerIntegration.cpp b/src/libslic3r/GCode/WipeTowerIntegration.cpp
+index 5fc3d186537..4e78bf710a4 100644
+--- a/src/libslic3r/GCode/WipeTowerIntegration.cpp
++++ b/src/libslic3r/GCode/WipeTowerIntegration.cpp
+@@ -78,7 +78,7 @@ std::string WipeTowerIntegration::append_tcr(GCodeGenerator &gcodegen, const Wip
+                 );
+             } else {
+                 gcode += gcodegen.writer().travel_to_xy(gcodegen.point_to_gcode(xy_point), comment);
+-                gcode += gcodegen.writer().get_travel_to_z_gcode(z, comment);
++                gcode += gcodegen.writer().travel_to_z_force(z, comment);
+             }
+         }
+         gcode += gcodegen.unretract();
+@@ -100,10 +100,7 @@ std::string WipeTowerIntegration::append_tcr(GCodeGenerator &gcodegen, const Wip
+             gcodegen.m_wipe.reset_path(); // We don't want wiping on the ramming lines.
+         toolchange_gcode_str = gcodegen.set_extruder(new_extruder_id, tcr.print_z); // TODO: toolchange_z vs print_z
+         if (gcodegen.config().wipe_tower) {
+-            deretraction_str += gcodegen.writer().get_travel_to_z_gcode(z, "restore layer Z");
+-            Vec3d position{gcodegen.writer().get_position()};
+-            position.z() = z;
+-            gcodegen.writer().update_position(position);
++            deretraction_str += gcodegen.writer().travel_to_z_force(z, "restore layer Z");
+             deretraction_str += gcodegen.unretract();
+         }
+     }
+
+From 26990206ca59ec7c612a33aac30242a1fc99aaf4 Mon Sep 17 00:00:00 2001
+From: jalapenopuzzle <8386278+jalapenopuzzle@users.noreply.github.com>
+Date: Mon, 3 Feb 2025 10:41:20 +1100
+Subject: [PATCH 3/3] #13420 GCodeWriter Correct Z speed too high and add unit
+ tests
+
+#13402 test_gcodewriter.cpp add travel_speed_z tests
+
+These tests fail with the legacy implementation of GCodeWriter::travel_to_xyz_force() because it does not decompose the speed into it's components according to the movement unit vector.
+
+#13420 Correct Z speed too high
+---
+ src/libslic3r/GCode/GCodeWriter.cpp  |  27 +--
+ tests/fff_print/test_gcodewriter.cpp | 260 +++++++++++++++++++++++++++
+ tests/fff_print/test_retraction.cpp  |  65 ++++++-
+ 3 files changed, 333 insertions(+), 19 deletions(-)
+
+diff --git a/src/libslic3r/GCode/GCodeWriter.cpp b/src/libslic3r/GCode/GCodeWriter.cpp
+index 94b1ba0b290..97f9b366003 100644
+--- a/src/libslic3r/GCode/GCodeWriter.cpp
++++ b/src/libslic3r/GCode/GCodeWriter.cpp
+@@ -358,20 +358,21 @@ std::string GCodeWriter::travel_to_xyz_force(const Vec3d &to, const std::string_
+     GCodeG1Formatter w;
+     w.emit_xyz(to);
+ 
+-    double speed_z = this->config.travel_speed_z.value;
+-    if (speed_z == 0.)
+-        speed_z = this->config.travel_speed.value;
+-
+-    const double distance_xy{(to.head<2>() - m_pos.head<2>()).norm()};
+-    const double distnace_z{std::abs(to.z() - m_pos.z())};
+-    const double time_z = distnace_z / speed_z;
+-    const double time_xy = distance_xy / this->config.travel_speed.value;
+-    const double factor = time_z > 0 ? time_xy / time_z : 1;
+-    if (factor < 1) {
+-        w.emit_f(std::floor((this->config.travel_speed.value * factor  + (1 - factor) * speed_z) * 60.0));
+-    } else {
+-        w.emit_f(this->config.travel_speed.value * 60.0);
++    double speed = this->config.travel_speed.value;
++    const double speed_z = this->config.travel_speed_z.value;
++
++    if (speed_z) {
++        const Vec3d move{to - m_pos};
++        const double distance{move.norm()};
++        const double abs_unit_vector_z{std::abs(move.z())/distance};
++        // De-compose speed into z vector component according to the movement unit vector.
++        const double speed_vector_z{abs_unit_vector_z * speed};
++        if (speed_vector_z > speed_z) {
++            // Re-compute speed so that the z component is exactly speed_z.
++            speed = speed_z / abs_unit_vector_z;
++        }
+     }
++    w.emit_f(speed * 60.0);
+ 
+     w.emit_comment(this->config.gcode_comments, comment);
+     m_pos = to;
+diff --git a/tests/fff_print/test_gcodewriter.cpp b/tests/fff_print/test_gcodewriter.cpp
+index a67d60e8fb3..e186a32307f 100644
+--- a/tests/fff_print/test_gcodewriter.cpp
++++ b/tests/fff_print/test_gcodewriter.cpp
+@@ -3,6 +3,7 @@
+ #include <memory>
+ 
+ #include "libslic3r/GCode/GCodeWriter.hpp"
++#include "libslic3r/GCodeReader.hpp"
+ 
+ using namespace Slic3r;
+ 
+@@ -33,6 +34,265 @@ SCENARIO("set_speed emits values with fixed-point output.", "[GCodeWriter]") {
+     }
+ }
+ 
++void check_gcode_feedrate(const std::string& gcode, const GCodeConfig& config, double expected_speed) {
++	GCodeReader parser;
++    parser.parse_buffer(gcode, [&] (Slic3r::GCodeReader &self, const Slic3r::GCodeReader::GCodeLine &line) {
++
++        const double travel_speed = config.opt_float("travel_speed");
++
++        const double feedrate = line.has_f() ? line.f() : self.f();
++        CHECK(feedrate == Approx(expected_speed * 60).epsilon(GCodeFormatter::XYZ_EPSILON));
++
++        if (line.dist_Z(self) != 0) {
++            // lift move or lift + change layer
++            const double travel_speed_z = config.opt_float("travel_speed_z");
++            if (travel_speed_z) {
++                Vec3d move{line.dist_X(self), line.dist_Y(self), line.dist_Z(self)};
++                double move_u_z = move.z() / move.norm();
++                double travel_speed_ = std::abs(travel_speed_z / move_u_z);
++                INFO("move Z feedrate Z component is less than or equal to travel_speed_z");
++                CHECK(feedrate * std::abs(move_u_z) <= Approx(travel_speed_z * 60).epsilon(GCodeFormatter::XYZ_EPSILON));
++                if (travel_speed_ < travel_speed) {
++                    INFO("move Z at travel speed Z");
++                    CHECK(feedrate == Approx(travel_speed_ * 60).epsilon(GCodeFormatter::XYZ_EPSILON));
++                    INFO("move Z feedrate Z component is equal to travel_speed_z");
++                    CHECK(feedrate * std::abs(move_u_z) == Approx(travel_speed_z * 60).epsilon(GCodeFormatter::XYZ_EPSILON));
++                } else {
++                    INFO("move Z at travel speed");
++                    CHECK(feedrate == Approx(travel_speed * 60).epsilon(GCodeFormatter::XYZ_EPSILON));
++                }
++            } else {
++                INFO("move Z at travel speed");
++                CHECK(feedrate == Approx(travel_speed * 60).epsilon(GCodeFormatter::XYZ_EPSILON));
++            }
++        } else if (not line.extruding(self)) {
++            // normal move
++            INFO("move XY at travel speed");
++            CHECK(feedrate == Approx(travel_speed * 60));
++        }
++    });
++}
++
++SCENARIO("travel_speed_z is zero should use travel_speed.", "[GCodeWriter]") {
++    GIVEN("GCodeWriter instance") {
++        GCodeWriter writer;
++        WHEN("travel_speed_z is set to 0") {
++            writer.config.travel_speed.value = 1000;
++            writer.config.travel_speed_z.value = 0;
++            THEN("XYZ move feed rate should be equal to travel_speed") {
++                const Vec3d move{10, 10, 10};
++                const double speed = writer.config.travel_speed.value;
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++        }
++    }
++}
++
++SCENARIO("travel_speed_z is respected in Z speed component.", "[GCodeWriter]") {
++    GIVEN("GCodeWriter instance") {
++        GCodeWriter writer;
++        WHEN("travel_speed_z is set to 10") {
++            writer.config.travel_speed.value = 1000;
++            writer.config.travel_speed_z.value = 10;
++            THEN("Z move feed rate should be equal to travel_speed_z") {
++                const Vec3d move{0, 0, 10};
++                const double speed = writer.config.travel_speed_z.value;
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("-Z move feed rate should be equal to travel_speed_z") {
++                const Vec3d move{0, 0, -10};
++                const double speed = writer.config.travel_speed_z.value;
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("XY move feed rate should be equal to travel_speed") {
++                const Vec3d move{10, 10, 0};
++                const double speed = writer.config.travel_speed.value;
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("-XY move feed rate should be equal to travel_speed") {
++                const Vec3d move{-10, 10, 0};
++                const double speed = writer.config.travel_speed.value;
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("X-Y move feed rate should be equal to travel_speed") {
++                const Vec3d move{10, -10, 0};
++                const double speed = writer.config.travel_speed.value;
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("-X-Y move feed rate should be equal to travel_speed") {
++                const Vec3d move{-10, -10, 0};
++                const double speed = writer.config.travel_speed.value;
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("XZ move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{10, 0, 10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                Vec3d p1 = writer.get_position();
++                Vec3d p2 = p1 + move;
++                std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("-XZ move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{-10, 0, 10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("X-Z move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{10, 0, -10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("-X-Z move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{-10, 0, -10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("YZ move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{0, 10, 10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("-YZ move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{0, -10, 10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("Y-Z move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{0, 10, -10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("-Y-Z move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{0, -10, -10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("XYZ move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{10, 10, 10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("-XYZ move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{-10, 10, 10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("X-YZ move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{10, -10, 10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("-X-YZ move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{-10, -10, 10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("XY-Z move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{10, 10, -10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("-XY-Z move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{-10, 10, -10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("X-Y-Z move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{10, -10, -10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++            THEN("-X-Y-Z move feed rate Z component should be equal to travel_speed_z") {
++                const Vec3d move{-10, -10, -10};
++                const Vec3d move_u = move / move.norm();
++                const double speed = std::abs(writer.config.travel_speed_z.value / move_u.z());
++                const Vec3d p1 = writer.get_position();
++                const Vec3d p2 = p1 + move;
++                const std::string result = writer.travel_to_xyz(p2);
++                check_gcode_feedrate(result, writer.config, speed);
++            }
++        }
++    }
++}
++
+ TEST_CASE("GCodeWriter emits G1 code correctly according to XYZF_EXPORT_DIGITS", "[GCodeWriter]") {
+     GCodeWriter writer;
+ 
+diff --git a/tests/fff_print/test_retraction.cpp b/tests/fff_print/test_retraction.cpp
+index b8cf441da83..0da9b861bb4 100644
+--- a/tests/fff_print/test_retraction.cpp
++++ b/tests/fff_print/test_retraction.cpp
+@@ -4,8 +4,9 @@
+ 
+ #include <catch2/catch.hpp>
+ 
+-#include <libslic3r/GCodeReader.hpp>
+-#include <libslic3r/Config.hpp>
++#include "libslic3r/GCodeReader.hpp"
++#include "libslic3r/GCode/GCodeWriter.hpp"
++#include "libslic3r/Config.hpp"
+ 
+ #include "test_data.hpp"
+ #include <regex>
+@@ -59,6 +60,10 @@ void check_gcode(std::initializer_list<TestMesh> meshes, const DynamicPrintConfi
+         const double retract_restart_extra = config.option<ConfigOptionFloats>("retract_restart_extra")->get_at(tool);
+         const double retract_restart_extra_toolchange = config.option<ConfigOptionFloats>("retract_restart_extra_toolchange")->get_at(tool);
+ 
++        const double travel_speed = config.opt_float("travel_speed");
++
++        const double feedrate = line.has_f() ? line.f() : self.f();
++
+         if (line.dist_Z(self) != 0) {
+             // lift move or lift + change layer
+             const double retract_lift = config.option<ConfigOptionFloats>("retract_lift")->get_at(tool);
+@@ -87,9 +92,26 @@ void check_gcode(std::initializer_list<TestMesh> meshes, const DynamicPrintConfi
+                 lift_dist = 0;
+                 lifted = false;
+             }
+-            const double feedrate = line.has_f() ? line.f() : self.f();
+-            INFO("move Z at travel speed");
+-            CHECK(feedrate == Approx(config.opt_float("travel_speed") * 60));
++            const double travel_speed_z = config.opt_float("travel_speed_z");
++            if (travel_speed_z) {
++                Vec3d move{line.dist_X(self), line.dist_Y(self), line.dist_Z(self)};
++                const double move_u_z = move.z() / move.norm();
++                const double travel_speed_ = std::abs(travel_speed_z / move_u_z);
++                INFO("move Z feedrate Z component is less than or equal to travel_speed_z");
++                CHECK(feedrate * std::abs(move_u_z) <= Approx(travel_speed_z * 60).epsilon(GCodeFormatter::XYZ_EPSILON));
++                if (travel_speed_ < travel_speed) {
++                    INFO("move Z at travel speed Z");
++                    CHECK(feedrate == Approx(travel_speed_ * 60).epsilon(GCodeFormatter::XYZ_EPSILON));
++                    INFO("move Z feedrate Z component is equal to travel_speed_z");
++                    CHECK(feedrate * std::abs(move_u_z) == Approx(travel_speed_z * 60).epsilon(GCodeFormatter::XYZ_EPSILON));
++                } else {
++                    INFO("move Z at travel speed");
++                    CHECK(feedrate == Approx(travel_speed * 60).epsilon(GCodeFormatter::XYZ_EPSILON));
++                }
++            } else {
++                INFO("move Z at travel speed");
++                CHECK(feedrate == Approx(travel_speed * 60).epsilon(GCodeFormatter::XYZ_EPSILON));
++            }
+         }
+         if (line.retracting(self)) {
+             retracted[tool] = true;
+@@ -147,7 +169,36 @@ void test_slicing(std::initializer_list<TestMesh> meshes, DynamicPrintConfig& co
+ 
+ }
+ 
+-TEST_CASE("Slicing with retraction and lifing", "[retraction]") {
++TEST_CASE("Slicing with retraction and lifting", "[retraction]") {
++    DynamicPrintConfig config = Slic3r::DynamicPrintConfig::full_print_config();
++    config.set_deserialize_strict({
++	    { "nozzle_diameter", "0.6,0.6,0.6,0.6" },
++        { "first_layer_height", config.opt_float("layer_height") },
++        { "first_layer_speed", "100%" },
++        { "start_gcode", "" },  // To avoid dealing with the nozzle lift in start G-code
++        { "retract_length", "1.5" },
++        { "retract_before_travel", "3" },
++        { "retract_layer_change", "1" },
++        { "only_retract_when_crossing_perimeters", 0 },
++    });
++
++    SECTION("Standard run") {
++        test_slicing({TestMesh::cube_20x20x20}, config);
++    }
++    SECTION("With duplicate cube") {
++        test_slicing({TestMesh::cube_20x20x20}, config, 2);
++    }
++    SECTION("Dual extruder with multiple skirt layers") {
++        config.set_deserialize_strict({
++            {"infill_extruder", 2},
++            {"skirts", 4},
++            {"skirt_height", 3},
++        });
++        test_slicing({TestMesh::cube_20x20x20}, config);
++    }
++}
++
++TEST_CASE("Slicing with retraction and lifting with travel_speed_z=10", "[retraction]") {
+     DynamicPrintConfig config = Slic3r::DynamicPrintConfig::full_print_config();
+     config.set_deserialize_strict({
+ 	    { "nozzle_diameter", "0.6,0.6,0.6,0.6" },
+@@ -158,6 +209,8 @@ TEST_CASE("Slicing with retraction and lifing", "[retraction]") {
+         { "retract_before_travel", "3" },
+         { "retract_layer_change", "1" },
+         { "only_retract_when_crossing_perimeters", 0 },
++        { "travel_speed", "600" },
++        { "travel_speed_z", "10" },
+     });
+ 
+     SECTION("Standard run") {
