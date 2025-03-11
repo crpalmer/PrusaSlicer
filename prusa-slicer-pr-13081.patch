@@ -203,7 +203,7 @@ Subject: [PATCH 2/3] missing include
 
 ---
  src/libslic3r/CutSurface.cpp                | 8 ++++++++
- src/slic3r/GUI/UserAccountCommunication.cpp | 1 +
+ src/slic3r/GUI/UserAccountCommunication.cpp | 1 + (no longer needed in 2.9.1)
  2 files changed, 9 insertions(+)
 
 diff --git a/src/libslic3r/CutSurface.cpp b/src/libslic3r/CutSurface.cpp
@@ -225,18 +225,6 @@ index f6449df19..2fbf0b28a 100644
  /// models_input.obj - Check transormation of model to each others
  /// projection_center.obj - circle representing center of projection with correct distance
  /// {M} .. model index
-diff --git a/src/slic3r/GUI/UserAccountCommunication.cpp b/src/slic3r/GUI/UserAccountCommunication.cpp
-index 877ff1fe1..ab9a79159 100644
---- a/src/slic3r/GUI/UserAccountCommunication.cpp
-+++ b/src/slic3r/GUI/UserAccountCommunication.cpp
-@@ -11,6 +11,7 @@
- #include <boost/beast/core/detail/base64.hpp>
- #include <boost/algorithm/string.hpp>
- #include <boost/filesystem.hpp>
-+#include <boost/nowide/convert.hpp>
- #include <boost/nowide/cstdio.hpp>
- #include <boost/nowide/fstream.hpp>
- #include <curl/curl.h>
 -- 
 2.47.1
 
