@@ -33,6 +33,9 @@ Source6:        https://github.com/catchorg/Catch2/archive/refs/tags/v3.8.0.tar.
 # Fix a couple of segfaults that happen with wxWidgets 3.2 (from Debian)
 Patch5:         prusa-slicer-fix-uninitialized-imgui-segfault.patch
 
+# Workaround fatal error: z3++.h: No such file or directory
+Patch6:         prusa-slicer-libseqarrange-notest.patch
+
 # Beware!
 # Patches >= 340 are only applied on Fedora 34+
 # Patches >= 350 are only applied on Fedora 35+
