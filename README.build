@@ -1,0 +1,22 @@
+To install prerequisites:
+
+sudo dnf install gtk3-devel zlib-static
+
+To build deps:
+
+* Make sure you have the commit which adds -Wno-error to +GMP/*cmake's configure step.
+
+cd deps
+mkdir build
+cd build
+cmake .. -DDEP_WX_GTK3=ON
+# or maybe needed -compile-no-warning-as-error in the cmake command?
+cd ../..
+
+To build:
+
+mkdir build
+cd build
+cmake .. -DSLIC3R_BUILD_TESTS=0 -DSLIC3R_STATIC=1 -DSLIC3R_GTK=3 -DSLIC3R_PCH=OFF -DCMAKE_PREFIX_PATH=$(pwd)/../deps/build/destdir/usr/local
+# cmake-devel doesn't compile!
+make
