@@ -1,0 +1,33 @@
+commit 3dd0ed42654c939a574168fb18e1514728d24f0d
+Author: Christopher R. Palmer <crpalmer@gmail.com>
+Date:   Thu Sep 18 13:25:33 2025 -0400
+
+    lightning infill: Anchor the infill when there is only 1 line
+    
+    The anchor for the lightning line is not generated when a layer
+    contains a single lightning line (technically, it's an island
+    of the layer contains a single line).
+    
+    For lightning infill, this often results in the infill failing
+    to print properly leading to print failures.  In the print that
+    caused me to notice this problem, there was almost 75mm of
+    height where at least one island was generating lightning infill
+    with no anchor!  These entire infill structures failed to print.
+    
+    Connect the infill to the perimeter when there is only 1 line.
+    
+    fixes: #14862
+
+diff --git a/src/libslic3r/Fill/FillLightning.cpp b/src/libslic3r/Fill/FillLightning.cpp
+index b46f3314a..fb75277a7 100644
+--- a/src/libslic3r/Fill/FillLightning.cpp
++++ b/src/libslic3r/Fill/FillLightning.cpp
+@@ -22,7 +22,7 @@ void Filler::_fill_surface_single(
+     const Layer &layer      = generator->getTreesForLayer(this->layer_id);
+     Polylines    fill_lines = layer.convertToLines(to_polygons(expolygon), scaled<coord_t>(0.5 * this->spacing - this->overlap));
+ 
+-    if (params.dont_connect() || fill_lines.size() <= 1) {
++    if (params.dont_connect() || fill_lines.size() < 1) {
+         append(polylines_out, chain_polylines(std::move(fill_lines)));
+     } else
+         connect_infill(std::move(fill_lines), expolygon, polylines_out, this->spacing, params);

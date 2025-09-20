@@ -52,6 +52,8 @@ Patch396:	prusa-slicer-pr-13761.patch
 Patch421:       prusa-slicer-pr-13081.patch
 # https://github.com/prusa3d/PrusaSlicer/pull/14388 and https://bugzilla.redhat.com/show_bug.cgi?id=2381383
 Patch431:       prusa-slicer-pr-14388-cmake-4.patch
+# https://github.com/prusa3d/PrusaSlicer/pull/14873
+Patch432:	prusa-slicer-pr-14873.patch
 
 # Highly-parallel uild can run out of memory on PPC64le
 %ifarch ppc64le
